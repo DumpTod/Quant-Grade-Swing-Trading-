@@ -816,10 +816,12 @@ scan_lock = Lock()
 is_scanning = False
 
 def run_background_scan():
-    """Run scan in background thread"""
+    """Run scan in background thread with full error logging"""
     global SCAN_RESULTS, is_scanning
     is_scanning = True
-    logger.info("Background scan starting...")
+    logger.info("="*50)
+    logger.info("BACKGROUND SCAN STARTING")
+    logger.info("="*50)
 
     with scan_lock:
         SCAN_RESULTS['scan_metadata']['status'] = 'scanning'
@@ -827,8 +829,12 @@ def run_background_scan():
     try:
         result = scanner.scan(ALL_STOCKS, top_n=80, max_sig=50)
         result['scan_metadata']['status'] = 'complete'
+        
         with scan_lock:
             SCAN_RESULTS = result
+        
+        logger.info(f"SCAN COMPLETE: {len(result['buy_signals'])} buys, {len(result['sell_signals'])} sells")
+        
         # Save to file
         try:
             with open('scan_results.json', 'w') as f:
@@ -836,13 +842,17 @@ def run_background_scan():
             logger.info("Results saved to file")
         except Exception as e:
             logger.warning(f"Could not save to file: {e}")
+            
     except Exception as e:
-        logger.error(f"Scan failed: {e}")
+        logger.error(f"SCAN FAILED: {e}")
+        logger.error(traceback.format_exc())
         with scan_lock:
             SCAN_RESULTS['scan_metadata']['status'] = 'error'
             SCAN_RESULTS['scan_metadata']['error'] = str(e)
+            SCAN_RESULTS['scan_metadata']['timestamp'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     finally:
         is_scanning = False
+        logger.info("Background scan thread finished")
 
 # Load saved results on startup
 def load_saved():
