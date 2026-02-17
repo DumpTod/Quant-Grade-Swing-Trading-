@@ -951,16 +951,22 @@ def api_upload():
         return jsonify({'error': str(e)}), 500
 
 # ============================================================
-# STARTUP
+# STARTUP — Works with both gunicorn and direct python
 # ============================================================
 load_saved()
 
+# Auto-start scan when app loads (works with gunicorn)
+def auto_start_scan():
+    """Wait 5 seconds for server to be ready, then start scanning"""
+    time.sleep(5)
+    if not is_scanning and SCAN_RESULTS['scan_metadata'].get('timestamp') is None:
+        logger.info("Auto-starting initial scan...")
+        run_background_scan()
+
+startup_thread = Thread(target=auto_start_scan, daemon=True)
+startup_thread.start()
+logger.info("Startup thread launched — scan will begin in 5 seconds")
+
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
-    logger.info(f"Starting on port {port}")
-
-    # Run initial scan in background
-    thread = Thread(target=run_background_scan, daemon=True)
-    thread.start()
-
     app.run(host='0.0.0.0', port=port)
